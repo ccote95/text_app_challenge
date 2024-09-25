@@ -15,15 +15,30 @@ class ContactListScreen extends StatefulWidget {
 
 class _ContactListScreenState extends State<ContactListScreen> {
   List<Contact> contacts = [];
+  int? selectedContactIndex;
 
   @override
   void initState() {
     super.initState();
-    loadContacts();
+    loadContacts(); // Load contacts from the JSON file
   }
 
   Future<void> loadContacts() async {
-    // Load your contacts from the JSON file
+    try {
+      // Load the contacts data from the JSON file
+      final String response = await rootBundle.loadString('assets/data.json');
+      final Map<String, dynamic> decodedData = json.decode(response);
+
+      // Extract the list of contacts from the 'users' field
+      final List<dynamic> contactsData = decodedData['users'] as List<dynamic>;
+
+      setState(() {
+        // Convert each contact's JSON data into a Contact object
+        contacts = contactsData.map((json) => Contact.fromJson(json)).toList();
+      });
+    } catch (error) {
+      print('Error loading contacts: $error');
+    }
   }
 
   void _addContact(Contact newContact) {
@@ -43,30 +58,58 @@ class _ContactListScreenState extends State<ContactListScreen> {
                   itemCount: contacts.length,
                   itemBuilder: (context, index) {
                     final contact = contacts[index];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundImage: NetworkImage(contact.imageUrl),
-                      ),
-                      title: Text('${contact.firstName} ${contact.lastName}'),
-                      subtitle: Text(contact.phoneNumber),
+                    bool isSelected = selectedContactIndex == index;
+
+                    return InkWell(
                       onTap: () {
+                        setState(() {
+                          selectedContactIndex =
+                              index; // Track selected contact
+                        });
+
+                        // Navigate to the message window when a contact is tapped
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) =>
-                                MessageWindow(contactName: contact.firstName),
+                            builder: (context) => MessageWindow(
+                              contactName: contact.firstName,
+                            ),
                           ),
-                        );
+                        ).then((_) {
+                          setState(() {
+                            selectedContactIndex = null;
+                          });
+                        });
                       },
+                      child: Container(
+                        // Apply gradient if the contact is selected
+                        decoration: BoxDecoration(
+                          gradient: isSelected
+                              ? const LinearGradient(
+                                  colors: [Colors.blueAccent, Colors.lightBlue],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : null, // No gradient if not selected
+                        ),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundImage: NetworkImage(contact.imageUrl),
+                          ),
+                          title:
+                              Text('${contact.firstName} ${contact.lastName}'),
+                          subtitle: Text(contact.phoneNumber),
+                        ),
+                      ),
                     );
                   },
                 ),
           Positioned(
-            top: 0,
+            top: 10,
             right: 20.0,
             child: FloatingActionButton.extended(
               onPressed: () async {
-                // Navigate to ContactFormScreen and pass the current contacts list
+                // Navigate to ContactFormScreen to add a new contact
                 final newContact = await Navigator.push<Contact>(
                   context,
                   MaterialPageRoute(
